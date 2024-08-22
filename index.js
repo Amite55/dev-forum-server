@@ -52,6 +52,14 @@ async function run() {
       res.send(result);
     })
 
+    // user post data get=====
+    app.get('/my-post/:email', async (req, res) => {
+      const email = req.params.email;
+      const query = {email: email};
+      const result = await postedCollection.find(query).toArray();
+      res.send(result);
+    })
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB! devForum ");
