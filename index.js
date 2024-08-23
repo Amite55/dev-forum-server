@@ -8,7 +8,7 @@ const port = process.env.PORT || 5000;
 app.use(cors())
 app.use(express.json());
 
-const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId, Timestamp } = require('mongodb');
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.g2fbusk.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -26,6 +26,27 @@ async function run() {
     await client.connect();
 
     const postedCollection = client.db('devForum').collection('postedData');
+    const usersCollection = client.db('devForum').collection('users');
+
+    // user save to database ====
+    app.put('/user', async (req, res) => {
+      const user = req.body;
+      const query = {email: user?.email}
+      // check if user is already exists in Database 
+      const isExist = await usersCollection.findOne(query);
+      if(isExist) return res.send(isExist);
+
+      const options = {upsert: true}
+      ;
+      const updateDoc = {
+        $set: {
+          ...user,
+          Timestamp: Date.now()
+        }
+      }
+      const result = await usersCollection.updateOne(query, updateDoc, options);
+      res.send(result)
+    })
 
     // get to postedData ========
     app.get('/postedData', async (req, res) => {
@@ -57,6 +78,14 @@ async function run() {
       const email = req.params.email;
       const query = {email: email};
       const result = await postedCollection.find(query).toArray();
+      res.send(result);
+    })
+
+    // post delete 
+    app.delete('/post/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = {_id: new ObjectId (id)};
+      const result = await postedCollection.deleteOne(query);
       res.send(result);
     })
 
