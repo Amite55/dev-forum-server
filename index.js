@@ -31,7 +31,7 @@ async function run() {
     // user save to database ====
     app.put('/user', async (req, res) => {
       const user = req.body;
-      const query = {email: user?.email}
+      const query = {email: user?.email};
       // check if user is already exists in Database 
       const isExist = await usersCollection.findOne(query);
       if(isExist) return res.send(isExist);
@@ -46,6 +46,34 @@ async function run() {
       }
       const result = await usersCollection.updateOne(query, updateDoc, options);
       res.send(result)
+    })
+
+    // ====== get a user info from database=====
+    app.get('/user/:email', async (req, res) => {
+      const email = req.params.email;
+      const result = await usersCollection.findOne({email});
+      res.send(result)
+    })
+
+    // get all user in user collection =======
+    app.get('/users', async (req, res) => {
+      const result = await usersCollection.find().toArray();
+      res.send(result)
+    })
+
+    // update a user role 
+    app.patch('/users/update/:email', async (req, res) => {
+      const email = req.params.email;
+      const user = req.body;
+      const query = {email};
+      const updateDoc = {
+        $set:{
+          ...user,
+          Timestamp: Date.now()
+        }
+      }
+      const result = await usersCollection.updateOne(query, updateDoc);
+      res.send(result);
     })
 
     // get to postedData ========
