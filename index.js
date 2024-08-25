@@ -27,6 +27,7 @@ async function run() {
 
     const postedCollection = client.db('devForum').collection('postedData');
     const usersCollection = client.db('devForum').collection('users');
+    const announcementCollection = client.db('devForum').collection('announcement');
 
     // user save to database ====
     app.put('/user', async (req, res) => {
@@ -114,6 +115,19 @@ async function run() {
       const id = req.params.id;
       const query = {_id: new ObjectId (id)};
       const result = await postedCollection.deleteOne(query);
+      res.send(result);
+    })
+
+    // get and display all announcement ==
+    app.get('/announcementData', async (req, res) => {
+      const result = await announcementCollection.find().toArray();
+      res.send(result)
+    })
+
+    // save admin announcement ==========
+    app.post('/announcement', async (req, res) => {
+      const announcement = req.body;
+      const result = await announcementCollection.insertOne(announcement);
       res.send(result);
     })
 
