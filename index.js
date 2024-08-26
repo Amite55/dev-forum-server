@@ -6,7 +6,7 @@ require('dotenv').config()
 const jwt = require('jsonwebtoken')
 const port = process.env.PORT || 5000;
 const { MongoClient, ServerApiVersion, ObjectId, Timestamp } = require('mongodb');
-
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 // middleware =====
 const corsOptions = {
@@ -35,8 +35,6 @@ const verifyToken = async (req, res, next) => {
   })
 }
 
-
-
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.g2fbusk.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -56,8 +54,16 @@ async function run() {
     const postedCollection = client.db('devForum').collection('postedData');
     const usersCollection = client.db('devForum').collection('users');
     const announcementCollection = client.db('devForum').collection('announcement');
+    const paymentCollection = client.db('devForum').collection('payments');
 
-
+    // verify admin middleware =======
+    const verifyAdmin = async (req, res, next) => {
+      const user = req.user;
+      const query = { email: user?.email };
+      const result = await usersCollection.findOne(query);
+      if (!result || result?.role !== 'admin') return res.status(401).send({ message: 'Unauthorized Access!!' });
+      next();
+    }
 
     // auth related api ======== jwt==========
     app.post('/jwt', async (req, res) => {
@@ -90,6 +96,22 @@ async function run() {
       }
     })
 
+    //  create-payment-intent on the server side ===
+    app.post('/create-payment-intent', verifyToken, async (req, res) => {
+      // generate client secret===========
+      const {client_secret} = await stripe.paymentIntents.create({
+        amount: 69 * 100,
+        currency: "usd",
+        // In the latest version of the API, specifying the `automatic_payment_methods` parameter is optional because Stripe enables its functionality by default.
+        automatic_payment_methods: {
+          enabled: true,
+        },
+      })
+
+      // send client secret as a response
+      res.send({clientSecret: client_secret})
+    })
+
 
     // user save to database ====
     app.put('/user', async (req, res) => {
@@ -112,20 +134,20 @@ async function run() {
     })
 
     // ====== get a user info from database=====
-    app.get('/user/:email', async (req, res) => {
+    app.get('/user/:email', verifyToken, async (req, res) => {
       const email = req.params.email;
       const result = await usersCollection.findOne({ email });
       res.send(result)
     })
 
-    // get all user in user collection =======
-    app.get('/users', async (req, res) => {
+    // get all user in user collection from admin dashboard=======
+    app.get('/users', verifyToken,  async (req, res) => {
       const result = await usersCollection.find().toArray();
       res.send(result)
     })
 
-    // update a user role 
-    app.patch('/users/update/:email', async (req, res) => {
+    // update a user role ========
+    app.patch('/users/update/:email', verifyToken, verifyAdmin, async (req, res) => {
       const email = req.params.email;
       const user = req.body;
       const query = { email };
@@ -139,7 +161,30 @@ async function run() {
       res.send(result);
     })
 
-    // get to postedData ========
+    // update user badge on user collection ====
+    app.put('/payment/update/:email', verifyToken, async (req, res) => {
+      const email = req.params.email;
+      const user = req.body;
+      const query = {email};
+      const updateDoc = {
+        $set: {
+          ...user,
+          Timestamp: Date.now()
+        }
+      }
+      const result = await usersCollection.updateOne(query, updateDoc);
+      console.log(result);
+      res.send(result)
+    })
+
+    // save the payment user information 
+    app.post('/payments', verifyToken, async(req, res) => {
+      const payments = req.body;
+      const result = await paymentCollection.insertOne(payments);
+      res.send(result);
+    })
+
+    // get to postedData see alll user========
     app.get('/postedData', async (req, res) => {
       const tags = req.query.tags;
       let query = {};
@@ -158,36 +203,36 @@ async function run() {
     })
 
     // add posted Data =======
-    app.post('/post', async (req, res) => {
+    app.post('/post', verifyToken, async (req, res) => {
       const postedData = req.body;
       const result = await postedCollection.insertOne(postedData);
       res.send(result);
     })
 
     // user post data get=====
-    app.get('/my-post/:email', async (req, res) => {
+    app.get('/my-post/:email', verifyToken, async (req, res) => {
       const email = req.params.email;
       const query = { email: email };
       const result = await postedCollection.find(query).toArray();
       res.send(result);
     })
 
-    // post delete 
-    app.delete('/post/:id', async (req, res) => {
+    // post delete === 
+    app.delete('/post/:id', verifyToken, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await postedCollection.deleteOne(query);
       res.send(result);
     })
 
-    // get and display all announcement ==
+    // get and display all announcement user and not user ==
     app.get('/announcementData', async (req, res) => {
       const result = await announcementCollection.find().toArray();
       res.send(result)
     })
 
     // save admin announcement ==========
-    app.post('/announcement', async (req, res) => {
+    app.post('/announcement', verifyToken, verifyAdmin, async (req, res) => {
       const announcement = req.body;
       const result = await announcementCollection.insertOne(announcement);
       res.send(result);
