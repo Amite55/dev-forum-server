@@ -55,6 +55,7 @@ async function run() {
     const usersCollection = client.db('devForum').collection('users');
     const announcementCollection = client.db('devForum').collection('announcement');
     const paymentCollection = client.db('devForum').collection('payments');
+    const commentsCollection = client.db('devForum').collection('comments');
 
     // verify admin middleware =======
     const verifyAdmin = async (req, res, next) => {
@@ -184,16 +185,39 @@ async function run() {
       res.send(result);
     })
 
-    // get to postedData see alll user========
+    // get to postedData all data see all user home page ========
     app.get('/postedData', async (req, res) => {
       const tags = req.query.tags;
+      const postedData = req.body;
+      console.log(postedData, 'ami post data from server');
+      const page = parseInt(req.query.page) - 1;
+       const size = parseInt(req.query.size);
+       const search = req.query.search;
+       console.log(req.body);
       let query = {};
+      let filter = {
+        tags: { $regex: search, $options: 'i' }
+      };
       if (tags && tags !== "null") {
         query = { tags }
       }
-      const result = await postedCollection.find(query).toArray();
+      const result = await postedCollection.find(query ).skip(page * size).limit(size).toArray();
       res.send(result)
     })
+
+    // get all posted data from db for pagination ============
+    app.get('/postedData', async (req, res) => {
+      const result = await postedCollection.find().toArray();
+      res.send(result)
+    })
+
+
+    // get all posted data form db for count =============
+    app.get('/post-count', async (req, res) => {
+       const count = await postedCollection.countDocuments();
+       res.send({count});
+    })
+
     // get single posted data for details==
     app.get('/post/:id', async (req, res) => {
       const id = req.params.id;
@@ -209,6 +233,7 @@ async function run() {
       res.send(result);
     })
 
+    // email spacific post data on my profile page ====
     // user post data get=====
     app.get('/my-post/:email', verifyToken, async (req, res) => {
       const email = req.params.email;
@@ -224,6 +249,22 @@ async function run() {
       const result = await postedCollection.deleteOne(query);
       res.send(result);
     })
+
+    // get comment from the post details page ===========
+    app.get('/comment/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = {postedId : id};
+      const result = await commentsCollection.find(query).toArray();
+      res.send(result);
+    })
+
+    // post data create new comment collection from post details page=====
+    app.post('/comments', verifyToken, async (req, res) => {
+      const commentDetails = req.body;
+      const result = await commentsCollection.insertOne(commentDetails)
+      res.send(result);
+    })
+
 
     // get and display all announcement user and not user ==
     app.get('/announcementData', async (req, res) => {
