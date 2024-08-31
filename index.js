@@ -21,7 +21,7 @@ app.use(cookieParser());
 // Verify Token Middleware
 const verifyToken = async (req, res, next) => {
   const token = req.cookies?.token
-  console.log(token)
+  console.log(token, 'token')
   if (!token) {
     return res.status(401).send({ message: 'unauthorized access' })
   }
@@ -56,6 +56,8 @@ async function run() {
     const announcementCollection = client.db('devForum').collection('announcement');
     const paymentCollection = client.db('devForum').collection('payments');
     const commentsCollection = client.db('devForum').collection('comments');
+    const reportsCollection = client.db('devForum').collection('report');
+    const feedbackCollection = client.db('devForum').collection('feedback');
 
     // verify admin middleware =======
     const verifyAdmin = async (req, res, next) => {
@@ -147,7 +149,7 @@ async function run() {
       res.send(result)
     })
 
-    // update a user role ========
+    // update a user role admin/user ========
     app.patch('/users/update/:email', verifyToken, verifyAdmin, async (req, res) => {
       const email = req.params.email;
       const user = req.body;
@@ -162,6 +164,20 @@ async function run() {
       res.send(result);
     })
 
+    // upVote count and down vote count ==============
+    app.patch('/posted/upVote/:id', verifyToken, async (req, res) => {
+      const id = req.params.id;
+      const postedData = req.body;
+      const query = {_id: new ObjectId(id)}
+      const updateDoc = {
+        $set: {
+          ...postedData
+        }
+      }
+      const result = await postedCollection.updateOne(query, updateDoc);
+      res.send(result)
+    })
+
     // update user badge on user collection ====
     app.put('/payment/update/:email', verifyToken, async (req, res) => {
       const email = req.params.email;
@@ -174,7 +190,6 @@ async function run() {
         }
       }
       const result = await usersCollection.updateOne(query, updateDoc);
-      console.log(result);
       res.send(result)
     })
 
@@ -189,11 +204,9 @@ async function run() {
     app.get('/postedData', async (req, res) => {
       const tags = req.query.tags;
       const postedData = req.body;
-      console.log(postedData, 'ami post data from server');
       const page = parseInt(req.query.page) - 1;
        const size = parseInt(req.query.size);
        const search = req.query.search;
-       console.log(req.body);
       let query = {};
       let filter = {
         tags: { $regex: search, $options: 'i' }
@@ -222,7 +235,7 @@ async function run() {
     app.get('/post/:id', async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
-      const result = await postedCollection.findOne(query)
+      const result = await postedCollection.findOne(query);
       res.send(result);
     })
 
@@ -250,13 +263,20 @@ async function run() {
       res.send(result);
     })
 
-    // get comment from the post details page ===========
+    // all comment get admin page my user ===========
+    app.get('/comments', verifyToken, async (req, res) => {
+      const result = await commentsCollection.find().toArray();
+      res.send(result)
+    })
+
+    // get comment from the post details page // get comment from the post my post page specific comment details page  
     app.get('/comment/:id', async (req, res) => {
       const id = req.params.id;
       const query = {postedId : id};
       const result = await commentsCollection.find(query).toArray();
       res.send(result);
     })
+
 
     // post data create new comment collection from post details page=====
     app.post('/comments', verifyToken, async (req, res) => {
@@ -276,6 +296,19 @@ async function run() {
     app.post('/announcement', verifyToken, verifyAdmin, async (req, res) => {
       const announcement = req.body;
       const result = await announcementCollection.insertOne(announcement);
+      res.send(result);
+    })
+
+    // post all reports postCommentTableRow/UpdateCommentModal==
+    app.post('/report/upload', async (req, res) => {
+      const report = req.body;
+      const result = await reportsCollection.insertOne(report);
+      res.send(result);
+    })
+    // post all reports postCommentTableRow/UpdateCommentModal==
+    app.post('/feedback/upload', async (req, res) => {
+      const feedback = req.body;
+      const result = await feedbackCollection.insertOne(feedback);
       res.send(result);
     })
 
