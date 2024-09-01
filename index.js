@@ -252,6 +252,7 @@ async function run() {
       const email = req.params.email;
       const query = { email: email };
       const result = await postedCollection.find(query).toArray();
+      console.log(result);
       res.send(result);
     })
 
@@ -305,6 +306,27 @@ async function run() {
       const result = await reportsCollection.insertOne(report);
       res.send(result);
     })
+    // get all reports admin activity page ======
+    app.get('/reports', verifyToken, verifyAdmin, async (req, res) => {
+      const result = await reportsCollection.find().toArray();
+      res.send(result)
+    })
+
+    // delete report activity page ======
+    app.delete('/report/deleted/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = {_id: new ObjectId(id)};
+      const result = await reportsCollection.deleteOne(query);
+      res.send(result);
+    })
+    // comment report posted Data get post collection ========= on activity page
+    app.get('/postedData/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = {_id: new ObjectId(id)};
+      const result = await postedCollection.findOne(query);
+      res.send(result);
+    })
+    
     // post all reports postCommentTableRow/UpdateCommentModal==
     app.post('/feedback/upload', async (req, res) => {
       const feedback = req.body;
