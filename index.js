@@ -200,34 +200,45 @@ async function run() {
       res.send(result);
     })
 
-    // get to postedData all data see all user home page ========
+    // get to postedData all data see all user home page or pagination and sorting and searching========
     app.get('/postedData', async (req, res) => {
+      const search = req.query.search;
       const tags = req.query.tags;
-      const postedData = req.body;
       const page = parseInt(req.query.page) - 1;
        const size = parseInt(req.query.size);
-       const search = req.query.search;
-      let query = {};
-      let filter = {
-        tags: { $regex: search, $options: 'i' }
-      };
-      if (tags && tags !== "null") {
-        query = { tags }
+       const sort = req.query.sort;
+       console.log(sort, 'hey ami sort');
+      let filter = {};
+      if(search){
+        console.log(search);
+        filter = { tags: { $regex: search, $options: 'i' } };
       }
-      const result = await postedCollection.find(query ).skip(page * size).limit(size).toArray();
+      else if(tags && tags !== "null") {
+        filter = { tags }
+      }
+      let options = {};
+      if(sort){
+        options = {sort: {
+          upVote: sort === 'asc' ? 1 : -1
+        }}
+      }
+      const result = await postedCollection.find(filter, options).skip(page * size).limit(size).toArray();
       res.send(result)
     })
-
-    // get all posted data from db for pagination ============
-    app.get('/postedData', async (req, res) => {
-      const result = await postedCollection.find().toArray();
-      res.send(result)
-    })
-
 
     // get all posted data form db for count =============
     app.get('/post-count', async (req, res) => {
-       const count = await postedCollection.countDocuments();
+      const search = req.query.search;
+      const tags = req.query.tags;
+      let filter = {};
+      if(search){
+        console.log(search);
+        filter = { tags: { $regex: search, $options: 'i' } };
+      }
+      else if(tags && tags !== "null") {
+        filter = { tags }
+      }      
+       const count = await postedCollection.countDocuments(filter);
        res.send({count});
     })
 
